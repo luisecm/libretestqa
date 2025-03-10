@@ -1,0 +1,76 @@
+name: Playwright E2E Tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps
+
+      - name: Download & Extract MetaMask
+        run: |
+          curl -L -o metamask.zip https://github.com/MetaMask/metamask-extension/releases/download/v10.25.0/metamask-chrome-10.25.0.zip
+          mkdir -p $GITHUB_WORKSPACE/metamask
+          unzip metamask.zip -d $GITHUB_WORKSPACE/metamask
+          echo "METAMASK_PATH=$GITHUB_WORKSPACE/metamask" >> $GITHUB_ENV
+
+      - name: Run Playwright tests
+        run: npx playwright test
+
+      - name: Upload Playwright Report
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: playwright-report
+          path: playwright-report/
+
+      - name: Upload Allure Report (Optional)
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: allure-report
+          path: allure-results/
+
+  deploy-report:
+    if: success() || failure() # Deploy even if tests fail
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download Playwright Report
+        uses: actions/download-artifact@v3
+        with:
+          name: playwright-report
+          path: playwright-report
+
+      - name: Deploy Playwright Report to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./playwright-report

@@ -1,0 +1,28 @@
+{
+  "name": "libre-tech-assesment",
+  "version": "1.0.0",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "playwright test",
+    "test:report": "playwright show-report",
+    "test:ci": "playwright test --reporter=list,line,html",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "ci:prepare": "npx playwright install --with-deps"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "@playwright/test": "^1.51.0",
+    "@synthetixio/synpress": "^4.0.10",
+    "@types/node": "^22.13.9",
+    "prettier": "^3.5.3"
+  },
+  "dependencies": {
+    "@cucumber/cucumber": "^11.2.0",
+    "dotenv": "^16.4.7"
+  }
+}

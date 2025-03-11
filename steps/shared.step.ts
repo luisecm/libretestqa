@@ -1,64 +1,73 @@
 import { Given, When } from "@cucumber/cucumber";
 import MainPage from "../pages/main.page";
 import { BrowserContext, Page, test as baseTest } from "@playwright/test";
-import dappwright, { Dappwright, MetaMaskWallet } from "@tenkeylabs/dappwright";
+import { launch, MetaMaskWallet } from "@tenkeylabs/dappwright";
+import dotenv from "dotenv";
+dotenv.config();
 
-export const test = baseTest.extend<{
-  context: BrowserContext;
-  wallet: Dappwright;
-}>({
-  context: async ({}, use) => {
-    // Launch context with extension
-    const [wallet, _, context] = await dappwright.bootstrap("", {
+let context: BrowserContext;
+let metamask: MetaMaskWallet;
+let page: Page;
+let mainPage: MainPage;
+
+Given(
+  /^A user with metamask installed connected to (sepolia|Mainnet) network$/,
+  async function (network) {
+    const allowedNetworks = ["sepolia", "Mainnet"];
+    if (!allowedNetworks.includes(network)) {
+      throw new Error(
+        `Invalid network: ${network}. Allowed networks: ${allowedNetworks.join(
+          ", "
+        )}`
+      );
+    }
+    if (!process.env.SEED_PHRASE) {
+      throw new Error("SEED_PHRASE is missing in .env.local");
+    }
+
+    // Start MetaMask and Launch Browser
+    const { wallet, browserContext } = await launch("chromium", {
       wallet: "metamask",
-      version: MetaMaskWallet.recommendedVersion,
-      seed: process.env.SEED_PHRASE,
+      version: "12.8.1",
       headless: false,
     });
-    await use(context);
-  },
 
-  wallet: async ({ context }, use) => {
-    const metamask = await dappwright.getWallet("metamask", context);
-    await use(metamask);
-  },
-});
+    metamask = wallet as MetaMaskWallet;
+    context = browserContext;
+    page = context.pages()[0];
 
-Given(
-  /^A user with metamask installed connected to sepolia network$/,
-  { timeout: 20 * 1000 },
-  async function ({ wallet }) {
-    await wallet.switchNetwork("Sepolia");
+    await metamask.setup({
+      seed: process.env.SEED_PHRASE,
+    });
+
+    // By default Ethereum Mainnet is selected
+    if (network === "sepolia") {
+      await metamask.switchNetwork("sepolia");
+    }
   }
 );
 
-Given(
-  /^A user with metamask installed connected to Mainnet network$/,
-  { timeout: 20 * 1000 },
-  async function ({ wallet }) {
-    await wallet.switchNetwork("MainNet");
-  }
-);
-
-When(/^the user accesses the app page$/, async function (page) {
-  const mainPage = new MainPage(page);
-  await mainPage.navigate();
+When(/^the user accesses the app page$/, async function () {
+  await page.goto("/");
 });
 
 When(
   /^the user enters the address {string} in the input address field$/,
-  async function (page: Page) {
-    const mainPage = new MainPage(page);
-    await mainPage.inputAddress.fill("0x9982f9A3bA28c");
+  async function (page: Page, address: string) {
+    mainPage = new MainPage(page);
+    await mainPage.inputAddressValue.clear();
+    await mainPage.inputAddressValue.fill(address);
   }
 );
 
 When(/^the user clicks the Submit button$/, async function (page: Page) {
-  const mainPage = new MainPage(page);
-  await mainPage.btnSubmitAddress.click();
+  mainPage = new MainPage(page);
+  await mainPage.buttonSubmit.click();
 });
 
 When(/^the user clicks the example token link$/, async function (page: Page) {
-  const mainPage = new MainPage(page);
-  await mainPage.spanExampleTokenLink.click();
+  mainPage = new MainPage(page);
+  await mainPage.textExampleToken.click();
 });
+
+export { page, metamask, context };

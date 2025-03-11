@@ -2,81 +2,112 @@ import { type Page, type Locator, expect } from "@playwright/test";
 
 export default class MainPage {
   readonly page: Page;
-  readonly divConnectedAddress: Locator;
-  readonly divError: Locator;
-  readonly btnConnect: Locator;
-  readonly inputAddressForm: Locator;
-  readonly inputAddress: Locator;
-  readonly btnSubmitAddress: Locator;
-  readonly spanExampleTokenLink: Locator;
-  readonly labelInputAddress: Locator;
+  readonly connectedAddress: Locator;
+  readonly alertConnectorError: Locator;
+  readonly buttonConnect: Locator;
+  readonly inputFormAddress: Locator;
+  readonly inputAddressValue: Locator;
+  readonly buttonSubmit: Locator;
+  readonly textExampleToken: Locator;
+  readonly textEnterAddress: Locator;
 
   constructor(page: Page) {
     this.page = page;
-    this.divConnectedAddress = this.page.getByTestId(
-      "MetaMaskConnector__Div__connect"
+    this.alertConnectorError = this.page.getByTestId(
+      "MetaMaskConnector__Div__error"
     );
-    this.divError = this.page.getByTestId("MetaMaskConnector__Div__error");
-    this.btnConnect = this.page.getByTestId(
+    this.buttonConnect = this.page.getByTestId(
       "MetaMaskConnector__Button__connect"
     );
-    this.inputAddressForm = this.page.getByTestId(
-      "InputAddress__Form__address"
+    this.buttonSubmit = this.page.getByTestId(
+      "inputAddressValue__Button__submit"
     );
-    this.inputAddress = this.page.getByTestId(
-      "InputAddress__Input__addressValue"
+    this.connectedAddress = this.page.getByTestId(
+      "MetaMaskConnector__Div__connect"
     );
-    this.btnSubmitAddress = this.page.getByTestId(
-      "InputAddress__Button__submit"
+
+    this.inputAddressValue = this.page.getByTestId(
+      "inputAddressValue__Input__addressValue"
     );
-    this.spanExampleTokenLink = this.page.getByTestId(
-      "InputAddress__Span__exampleTokenLink"
+    this.inputFormAddress = this.page.getByTestId(
+      "inputAddressValue__Form__address"
     );
-    this.labelInputAddress = this.page.getByText(
+    this.textEnterAddress = this.page.getByText(
       "Enter the address of the ERC20 token"
+    );
+    this.textExampleToken = this.page.getByTestId(
+      "inputAddressValue__Span__exampleTokenLink"
     );
   }
 
-  async navigate(): Promise<void> {
+  async clickOnSwitchNetwork() {
+    await this.buttonConnect.click();
+  }
+
+  async validateSwitchNetworkIsVisible() {
+    await expect(this.buttonConnect).toBeVisible();
+    await expect(this.buttonConnect).toHaveText("Connect Metamask to Sepolia");
+  }
+
+  async visitPage() {
     await this.page.goto("/");
   }
 
-  async connectWallet(): Promise<void> {
+  async reloadPage() {
     await this.page.reload();
   }
 
-  async getConnectedWalletAddress(): Promise<string> {
-    const divText = (await this.divConnectedAddress.textContent()) as string;
-    const match = divText.match(/0x[a-fA-F0-9]{40}/);
-    let walletAddress: string = "";
-    if (match) {
-      walletAddress = match[0];
-    } else {
-      console.log("No Ethereum address found in the string.");
+  async extractWalletAddress() {
+    const addressText = await this.connectedAddress.textContent();
+
+    if (!addressText) {
+      throw new Error("Connected wallet address is not available.");
     }
-    return walletAddress;
+
+    const addressPattern = /0x[a-fA-F0-9]{40}/;
+    const extractedAddress = addressText.match(addressPattern)?.[0] || "";
+
+    if (!extractedAddress) {
+      console.warn("No valid Ethereum address found in the provided text.");
+    }
+
+    return extractedAddress;
   }
 
-  async getConnectButtonText(): Promise<string> {
-    const buttonText = (await this.btnConnect.textContent()) as string;
-    return buttonText;
+  async fetchConnectButtonLabel() {
+    const buttonLabel = await this.buttonConnect.textContent();
+    return buttonLabel;
   }
 
-  async validateHomePageLayoutWalletConnected({
-    connectedAddressMetamask,
-    connectedAddressApp,
+  async validateFormIsLoaded() {
+    const elementsToCheck = [
+      this.inputFormAddress,
+      this.inputAddressValue,
+      this.buttonSubmit,
+      this.textEnterAddress,
+      this.textExampleToken,
+    ];
+
+    for (const element of elementsToCheck) {
+      await expect.soft(element).toBeVisible();
+    }
+
+    await expect.soft(this.buttonSubmit).toBeDisabled();
+  }
+
+  async validateWalletIsConnected({
+    metamaskAddress,
+    appAddress,
   }: {
-    connectedAddressMetamask: string;
-    connectedAddressApp: string;
-  }): Promise<void> {
+    metamaskAddress: string;
+    appAddress: string;
+  }) {
     expect
-      .soft(connectedAddressApp.toLowerCase())
-      .toEqual(connectedAddressMetamask.toLowerCase());
-    await expect.soft(this.inputAddressForm).toBeVisible();
-    await expect.soft(this.inputAddress).toBeVisible();
-    await expect.soft(this.btnSubmitAddress).toBeVisible();
-    await expect.soft(this.btnSubmitAddress).toBeDisabled();
-    await expect.soft(this.labelInputAddress).toBeVisible();
-    await expect.soft(this.spanExampleTokenLink).toBeVisible();
+      .soft(appAddress.toLowerCase())
+      .toEqual(metamaskAddress.toLowerCase());
+  }
+
+  async validateAlertIsVisible() {
+    await this.alertConnectorError.waitFor({ state: "visible" });
   }
 }

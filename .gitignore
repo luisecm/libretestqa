@@ -8,3 +8,5 @@ node_modules/
 
 # Several Files
 package-lock.json
+
+# .env
